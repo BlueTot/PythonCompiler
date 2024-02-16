@@ -1,0 +1,17 @@
+num = 0
+if num == 1:
+    print("ONE")
+    if num > 5:
+        print("abc")
+    elif num < 3:
+        print("def")
+elif num == 2:
+    print("TWO")
+    if num > 0:
+        print("positive")
+    elif num < 0:
+        print("negative")
+elif num == 3:
+    print("THREE")
+else:
+    print("OTHERWISE")
