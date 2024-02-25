@@ -1,8 +1,12 @@
-i = 0
-while i < 10:
-    j = 0
-    while j < 10:
-        print(i)
-        print(j)
+N = 100
+i = 2
+while i < N:
+    j = 2
+    hasfactor = 0
+    while j < i:
+        if i % j == 0:
+            hasfactor = 1
         j = j + 1
+    if hasfactor == 0:
+        print(i)
     i = i + 1
