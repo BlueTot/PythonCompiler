@@ -178,6 +178,14 @@ def compile_code(code):
                 assembly_code[else_instruction] = assembly_code[else_instruction].replace("ptr", str(len(assembly_code)))
                 ln = end_of_curr_if_block # Set line in original code to jump to next
             
+            elif re.match(r"for(.*,.*,.*):", line): # For loop
+                linenum = len(assembly_code)
+                initialisation, condition, increment = line.replace("):", "").replace("for(", "").split(",") # split for loop code into three sections
+                end_of_for_loop = find_end_of_if_statement(code,ln+1, indents := num_indents(code, ln)) # Find when the for loop ends
+                loop_code = [" "*INDENT_SIZE*indents + initialisation, f"{' '*INDENT_SIZE*indents}while {condition}:"] + code[ln+1:end_of_for_loop] + [f"{' '*INDENT_SIZE*(indents+1)}{increment}"] # convert for loop into a while loop
+                assembly_code = extend_code(assembly_code, compile_code(loop_code), linenum)
+                ln = end_of_for_loop
+            
             elif re.match(r"else:", line): # Else statement
                 linenum = len(assembly_code)
                 end_of_if_statement = find_end_of_if_statement(code, ln+1, num_indents(code, ln)) # Find when the if statement ends
@@ -186,6 +194,11 @@ def compile_code(code):
 
             elif re.match(r".*=.*", line): # Assignment
                 assembly_code = extend_code(assembly_code, compile_assignment(line), linenum) # Compile assignment RPN into multiple statements
+                ln += 1
+            
+            elif re.match(r".*\+\+", line): # Increment operator
+                variable = line.replace("++", "")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} + 1"]), linenum) # Convert increment operator into compilable syntax
                 ln += 1
 
             elif re.match(r"print(.*)", line): # Print Statement
