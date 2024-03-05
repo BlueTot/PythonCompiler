@@ -4,5 +4,6 @@ for (i = 2, i < N, i++):
     for (j = 2, j < i, j++):
         if i % j == 0:
             hasfactor = 1
+            break
     if hasfactor == 0:
         print(i)
