@@ -57,6 +57,7 @@ def compile_rpn(rpn, temp):
                 case "/": assembly_code[linenum] = f"DIV {temp} {operand1} {operand2}"
                 case "^": assembly_code[linenum] = f"EXP {temp} {operand1} {operand2}"
                 case "%": assembly_code[linenum] = f"MOD {temp} {operand1} {operand2}"
+                case "\\": assembly_code[linenum] = f"FDV {temp} {operand1} {operand2}"
             stack.append(temp)
             linenum += 1
         else:
@@ -203,6 +204,41 @@ def compile_code(code):
             elif re.match(r"break", line): # Break statement
                 assembly_code[linenum] = "BAL break"
                 ln += 1
+            
+            elif re.match(r".*\+=.*", line): # Fast Addition operator
+                variable, operand = line.split("+=")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} + {operand}"]), linenum) # Convert fast addition operator into compilable syntax
+                ln += 1
+            
+            elif re.match(r".*-=.*", line): # Fast Subtraction operator
+                variable, operand = line.split("-=")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} - {operand}"]), linenum) # Convert fast subtraction operator into compilable syntax
+                ln += 1
+            
+            elif re.match(r".*\*=.*", line): # Fast Multiplication operator
+                variable, operand = line.split("*=")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} * {operand}"]), linenum) # Convert fast multiplication operator into compilable syntax
+                ln += 1
+            
+            elif re.match(r".*/=.*", line): # Fast Division operator
+                variable, operand = line.split("/=")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} / {operand}"]), linenum) # Convert fast division operator into compilable syntax
+                ln += 1
+            
+            elif re.match(r".*^=.*", line): # Fast Exponentiation operator
+                variable, operand = line.split("^=")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} ^ {operand}"]), linenum) # Convert fast exponentiation operator into compilable syntax
+                ln += 1
+            
+            elif re.match(r".*%=.*", line): # Fast Modulo operator
+                variable, operand = line.split("%=")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} % {operand}"]), linenum) # Convert fast modulo operator into compilable syntax
+                ln += 1
+            
+            elif re.match(r".*\\=.*", line): # Fast Floor Division operator
+                variable, operand = line.split("\\=")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} \ {operand}"]), linenum) # Convert fast floor division operator into compilable syntax
+                ln += 1
 
             elif re.match(r".*=.*", line): # Assignment
                 assembly_code = extend_code(assembly_code, compile_assignment(line), linenum) # Compile assignment RPN into multiple statements
@@ -211,6 +247,11 @@ def compile_code(code):
             elif re.match(r".*\+\+", line): # Increment operator
                 variable = line.replace("++", "")
                 assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} + 1"]), linenum) # Convert increment operator into compilable syntax
+                ln += 1
+            
+            elif re.match(r".*--", line): # Decrement operator
+                variable = line.replace("--", "")
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} - 1"]), linenum) # Convert decrement operator into compilable syntax
                 ln += 1
 
             elif re.match(r"print(.*)", line): # Print Statement

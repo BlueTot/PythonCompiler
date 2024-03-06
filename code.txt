@@ -1,9 +1,5 @@
-N = 1000
-for (i = 2, i < N, i++):
-    hasfactor = 0
-    for (j = 2, j < i, j++):
-        if i % j == 0:
-            hasfactor = 1
-            break
-    if hasfactor == 0:
-        print(i)
+number = 156
+while number > 0:
+    bit = number % 2
+    print(bit)
+    number \= 2

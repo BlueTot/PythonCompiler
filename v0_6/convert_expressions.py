@@ -1,4 +1,4 @@
-OPERATIONS = "+-*/%^"
+OPERATIONS = "+-*/%^\\"
 
 class Number:
     def __init__(self, value):
@@ -33,7 +33,7 @@ class Variable:
 def precedence(operator):
     if operator == "^":
         return 3
-    elif operator in "*/":
+    elif operator in "*/\\":
         return 2
     elif operator in "+-":
         return 1

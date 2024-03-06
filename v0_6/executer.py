@@ -1,4 +1,4 @@
-NUMERICAL_INSTRUCTIONS = ("ADD", "SUB", "MTP", "DIV", "EXP", "MOD")
+NUMERICAL_INSTRUCTIONS = ("ADD", "SUB", "MTP", "DIV", "EXP", "MOD", "FDV")
 
 def execute_assembly_code(assembly_code):
     VARIABLES = {}
@@ -20,6 +20,7 @@ def execute_assembly_code(assembly_code):
                 case "DIV": VARIABLES[var] = num1 / num2
                 case "EXP": VARIABLES[var] = num1 ** num2
                 case "MOD": VARIABLES[var] = num1 % num2
+                case "FDV": VARIABLES[var] = num1 // num2
             ln += 1
             if var == "__temp__": 
                 pass
