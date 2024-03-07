@@ -1,11 +1,7 @@
 import re
 from convert_expressions import OPERATIONS, convert_expression
 
-REGISTERS = ["__r0__", "__r1__", "__r2__"]
-
-DTV1 = "__temp__"
-DTV2 = "__temp2__"
-
+REGISTERS = ["__r0__", "__r1__", "__r2__", "__r3__"]
 INDENT_SIZE = 4
 
 def num_indents(code, ln):
@@ -43,19 +39,21 @@ def extend_code(assembly_code, new_code, start_line):
         assembly_code[k] = v
     return assembly_code
 
-def compile_rpn(rpn, used_reg=None):
+def compile_rpn(rpn, store=None, used_reg=None):
 
-    registers = [False, False, False] # Initialise list of registers that have something stored
-    if used_reg is not None:
-        registers[REGISTERS.index(used_reg)] = True
+    registers = [False for _ in range(len(REGISTERS))] # Initialise list of registers that have something stored
+    if used_reg is not None: # If a register has been used by another part of the comparison operation
+        registers[REGISTERS.index(used_reg)] = True # Block out this register
     assembly_code = {}
     linenum = 0
     stack = []
 
-    for token in rpn: # Loop through all tokens in RPN list
+    for idx, token in enumerate(rpn): # Loop through all tokens in RPN list
         if token in OPERATIONS: # Operator found
             reg = min([i for i, v in enumerate(registers) if not v]) # Get next free register index
             register = REGISTERS[reg] # Get name of register
+            if idx == len(rpn) - 1 and store is not None: # If a store is required and this is the last operation
+                register = store
             operand2 = stack.pop()
             operand1 = stack.pop()
             match token:
@@ -67,11 +65,12 @@ def compile_rpn(rpn, used_reg=None):
                 case "%": assembly_code[linenum] = f"MOD {register} {operand1} {operand2}"
                 case "\\": assembly_code[linenum] = f"FDV {register} {operand1} {operand2}"
             stack.append(register)
-            registers[reg] = True # Set current register to be used
-            if operand1 in REGISTERS:
-                registers[REGISTERS.index(operand1)] = False # Free up register if used as operand
-            if operand2 in REGISTERS:
-                registers[REGISTERS.index(operand2)] = False # Free up register if used as operand
+            if store is None or idx < len(rpn) - 1: # If store operation is not required
+                registers[reg] = True # Set current register to be used
+                if operand1 in REGISTERS:
+                    registers[REGISTERS.index(operand1)] = False # Free up register if used as operand
+                if operand2 in REGISTERS:
+                    registers[REGISTERS.index(operand2)] = False # Free up register if used as operand
             linenum += 1
         else: # Operand found
             if token.isdigit(): # number
@@ -79,7 +78,7 @@ def compile_rpn(rpn, used_reg=None):
             else: # string or variable
                 stack.append(token)
     
-    return assembly_code, stack[-1]
+    return assembly_code, stack[-1] # Return assembly code and the register where output is stored at
 
 def compile_assignment(line): # Compile Assignment operations
 
@@ -87,14 +86,10 @@ def compile_assignment(line): # Compile Assignment operations
     rpn = convert_expression(righthalf).split(",") # Convert the right hand side into RPN
     assembly_code = {}
 
-    if len(rpn) == 1:
-        assembly_code[0] = f"STR {lefthalf} {rpn[0]}"
-        return assembly_code
-    
-    assembly_code, lastreg = compile_rpn(rpn)
-    linenum = len(assembly_code)
-    assembly_code[linenum] = f"STR {lefthalf} {lastreg}"
-
+    if len(rpn) == 1: # If only one operand
+        assembly_code[0] = f"STR {lefthalf} {rpn[0]}" # Store directly
+    else: # Otherwise
+        assembly_code, _ = compile_rpn(rpn, store=lefthalf) # Compile RPN with store operation included
     return assembly_code
 
 def compile_comparison(line): # Compile comparison operation
@@ -120,14 +115,14 @@ def compile_comparison(line): # Compile comparison operation
             elif len(lrpn) > 1 and len(rrpn) == 1: # left half requires compiling
                assembly_code, lastreg = compile_rpn(lrpn)
                linenum = len(assembly_code)
-               assembly_code[linenum] = f"CMP {DTV1} {lastreg}"
+               assembly_code[linenum] = f"CMP {rrpn[0]} {lastreg}"
                
             else: # both sides need compiling
-                assembly_code, lastreg = compile_rpn(lrpn, DTV1)
+                assembly_code, lastreg = compile_rpn(lrpn) # Compile LHS and store register with stored value
                 linenum = len(assembly_code)
-                new_code, lastreg2 = compile_rpn(rrpn, lastreg)
-                assembly_code = extend_code(assembly_code, new_code, linenum)
-                assembly_code[len(assembly_code)] = f"CMP {lastreg} {lastreg2}"
+                new_code, lastreg2 = compile_rpn(rrpn, used_reg=lastreg) # Compile RHS whilst blocking out register that is being used
+                assembly_code = extend_code(assembly_code, new_code, linenum) # Extend the assembly code
+                assembly_code[len(assembly_code)] = f"CMP {lastreg} {lastreg2}" # Add the compare operation
 
             linenum = len(assembly_code)
             assembly_code[linenum] = f"{keyword} {linenum+2}" # Add branch instruction
