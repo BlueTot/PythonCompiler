@@ -52,12 +52,12 @@ def extract_components_from_infix(s):
             tokens.append(String(part := s[i:s[i+1:].find(char)+i+2]))
         elif char in OPERATIONS+"()": # operation or bracket
             tokens.append(part := char)
-        elif char.isdigit(): # start of a number
+        elif char.isdigit() or char == ".": # start of a number
             if i == len(s) - 1:
                 tokens.append(Number(part := char))
             else:
                 for j, c in enumerate(s[i+1:]):
-                    if not c.isdigit():
+                    if not c.isdigit() and c != ".":
                         tokens.append(Number(part := s[i:j+i+1]))
                         break
                 else:

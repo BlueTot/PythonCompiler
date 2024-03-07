@@ -1,10 +1,11 @@
 N = 20
-x = 355 / 113 / 6
+pi = 3.141592653589793238462643
+x = pi / 6
 sign = 1
 sum = 0
 curr = 1
 for (i = 1, i < N, i += 2):
-    sum += sign * x ^ i / curr
+    sum +=  sign * x ^ i / curr
     curr *= (i + 1) * (i + 2)
-    sign *= 0 - 1
+    sign *= (0 - 1)
 print(sum)
