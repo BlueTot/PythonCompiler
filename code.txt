@@ -1,5 +1,10 @@
-number = 156
-while number > 0:
-    bit = number % 2
-    print(bit)
-    number \= 2
+N = 20
+x = 355 / 113 / 6
+sign = 1
+sum = 0
+curr = 1
+for (i = 1, i < N, i += 2):
+    sum += sign * x ^ i / curr
+    curr *= (i + 1) * (i + 2)
+    sign *= 0 - 1
+print(sum)

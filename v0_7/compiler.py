@@ -1,6 +1,8 @@
 import re
 from convert_expressions import OPERATIONS, convert_expression
 
+REGISTERS = ["__r0__", "__r1__", "__r2__"]
+
 DTV1 = "__temp__"
 DTV2 = "__temp2__"
 
@@ -41,50 +43,61 @@ def extend_code(assembly_code, new_code, start_line):
         assembly_code[k] = v
     return assembly_code
 
-def compile_rpn(rpn, temp):
+def compile_rpn(rpn, used_reg=None):
+
+    registers = [False, False, False] # Initialise list of registers that have something stored
+    if used_reg is not None:
+        registers[REGISTERS.index(used_reg)] = True
     assembly_code = {}
     linenum = 0
     stack = []
 
-    for token in rpn:
-        if token in OPERATIONS: # operator
+    for token in rpn: # Loop through all tokens in RPN list
+        if token in OPERATIONS: # Operator found
+            reg = min([i for i, v in enumerate(registers) if not v]) # Get next free register index
+            register = REGISTERS[reg] # Get name of register
             operand2 = stack.pop()
             operand1 = stack.pop()
             match token:
-                case "+": assembly_code[linenum] = f"ADD {temp} {operand1} {operand2}"
-                case "-": assembly_code[linenum] = f"SUB {temp} {operand1} {operand2}"
-                case "*": assembly_code[linenum] = f"MTP {temp} {operand1} {operand2}" 
-                case "/": assembly_code[linenum] = f"DIV {temp} {operand1} {operand2}"
-                case "^": assembly_code[linenum] = f"EXP {temp} {operand1} {operand2}"
-                case "%": assembly_code[linenum] = f"MOD {temp} {operand1} {operand2}"
-                case "\\": assembly_code[linenum] = f"FDV {temp} {operand1} {operand2}"
-            stack.append(temp)
+                case "+": assembly_code[linenum] = f"ADD {register} {operand1} {operand2}"
+                case "-": assembly_code[linenum] = f"SUB {register} {operand1} {operand2}"
+                case "*": assembly_code[linenum] = f"MTP {register} {operand1} {operand2}" 
+                case "/": assembly_code[linenum] = f"DIV {register} {operand1} {operand2}"
+                case "^": assembly_code[linenum] = f"EXP {register} {operand1} {operand2}"
+                case "%": assembly_code[linenum] = f"MOD {register} {operand1} {operand2}"
+                case "\\": assembly_code[linenum] = f"FDV {register} {operand1} {operand2}"
+            stack.append(register)
+            registers[reg] = True # Set current register to be used
+            if operand1 in REGISTERS:
+                registers[REGISTERS.index(operand1)] = False # Free up register if used as operand
+            if operand2 in REGISTERS:
+                registers[REGISTERS.index(operand2)] = False # Free up register if used as operand
             linenum += 1
-        else:
+        else: # Operand found
             if token.isdigit(): # number
                 stack.append(token)
             else: # string or variable
                 stack.append(token)
     
-    return assembly_code
+    return assembly_code, stack[-1]
 
-def compile_assignment(line):
+def compile_assignment(line): # Compile Assignment operations
 
-    lefthalf, righthalf = line.split("=")
-    rpn = convert_expression(righthalf).split(",")
+    lefthalf, righthalf = line.split("=") # Split assignment into two halves
+    rpn = convert_expression(righthalf).split(",") # Convert the right hand side into RPN
     assembly_code = {}
 
     if len(rpn) == 1:
         assembly_code[0] = f"STR {lefthalf} {rpn[0]}"
         return assembly_code
     
-    assembly_code = compile_rpn(rpn, DTV1)
+    assembly_code, lastreg = compile_rpn(rpn)
     linenum = len(assembly_code)
-    assembly_code[linenum] = f"STR {lefthalf} {DTV1}"
+    assembly_code[linenum] = f"STR {lefthalf} {lastreg}"
 
     return assembly_code
 
-def compile_comparison(line):
+def compile_comparison(line): # Compile comparison operation
 
     assembly_code = {}
 
@@ -100,21 +113,21 @@ def compile_comparison(line):
                 assembly_code[0] = f"CMP {lrpn[0]} {rrpn[0]}"
 
             elif len(lrpn) == 1 and len(rrpn) > 1: # right half requires compiling
-                assembly_code = compile_rpn(rrpn, DTV1)
+                assembly_code, lastreg = compile_rpn(rrpn)
                 linenum = len(assembly_code)
-                assembly_code[linenum] = f"CMP {lrpn[0]} {DTV1}"
+                assembly_code[linenum] = f"CMP {lrpn[0]} {lastreg}"
 
             elif len(lrpn) > 1 and len(rrpn) == 1: # left half requires compiling
-               assembly_code = compile_rpn(lrpn, DTV1)
+               assembly_code, lastreg = compile_rpn(lrpn)
                linenum = len(assembly_code)
-               assembly_code[linenum] = f"CMP {DTV1} {rrpn[0]}"
+               assembly_code[linenum] = f"CMP {DTV1} {lastreg}"
                
             else: # both sides need compiling
-                assembly_code = compile_rpn(lrpn, DTV1)
+                assembly_code, lastreg = compile_rpn(lrpn, DTV1)
                 linenum = len(assembly_code)
-                for k, v in shift_pointers(compile_rpn(rrpn, DTV2), linenum).items():
-                    assembly_code[k] = v
-                assembly_code[len(assembly_code)] = f"CMP {DTV1} {DTV2}"
+                new_code, lastreg2 = compile_rpn(rrpn, lastreg)
+                assembly_code = extend_code(assembly_code, new_code, linenum)
+                assembly_code[len(assembly_code)] = f"CMP {lastreg} {lastreg2}"
 
             linenum = len(assembly_code)
             assembly_code[linenum] = f"{keyword} {linenum+2}" # Add branch instruction
@@ -207,37 +220,37 @@ def compile_code(code):
             
             elif re.match(r".*\+=.*", line): # Fast Addition operator
                 variable, operand = line.split("+=")
-                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} + {operand}"]), linenum) # Convert fast addition operator into compilable syntax
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} + ({operand})"]), linenum) # Convert fast addition operator into compilable syntax
                 ln += 1
             
             elif re.match(r".*-=.*", line): # Fast Subtraction operator
                 variable, operand = line.split("-=")
-                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} - {operand}"]), linenum) # Convert fast subtraction operator into compilable syntax
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} - ({operand})"]), linenum) # Convert fast subtraction operator into compilable syntax
                 ln += 1
             
             elif re.match(r".*\*=.*", line): # Fast Multiplication operator
                 variable, operand = line.split("*=")
-                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} * {operand}"]), linenum) # Convert fast multiplication operator into compilable syntax
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} * ({operand})"]), linenum) # Convert fast multiplication operator into compilable syntax
                 ln += 1
             
             elif re.match(r".*/=.*", line): # Fast Division operator
                 variable, operand = line.split("/=")
-                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} / {operand}"]), linenum) # Convert fast division operator into compilable syntax
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} / ({operand})"]), linenum) # Convert fast division operator into compilable syntax
                 ln += 1
             
             elif re.match(r".*^=.*", line): # Fast Exponentiation operator
                 variable, operand = line.split("^=")
-                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} ^ {operand}"]), linenum) # Convert fast exponentiation operator into compilable syntax
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} ^ ({operand})"]), linenum) # Convert fast exponentiation operator into compilable syntax
                 ln += 1
             
             elif re.match(r".*%=.*", line): # Fast Modulo operator
                 variable, operand = line.split("%=")
-                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} % {operand}"]), linenum) # Convert fast modulo operator into compilable syntax
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} % ({operand})"]), linenum) # Convert fast modulo operator into compilable syntax
                 ln += 1
             
             elif re.match(r".*\\=.*", line): # Fast Floor Division operator
                 variable, operand = line.split("\\=")
-                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} \ {operand}"]), linenum) # Convert fast floor division operator into compilable syntax
+                assembly_code = extend_code(assembly_code, compile_code([f"{variable} = {variable} \ ({operand})"]), linenum) # Convert fast floor division operator into compilable syntax
                 ln += 1
 
             elif re.match(r".*=.*", line): # Assignment
