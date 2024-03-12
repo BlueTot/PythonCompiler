@@ -1,11 +1,11 @@
-N = 20
-pi = 3.141592653589793238462643
-x = pi / 6
-sign = 1
-sum = 0
-curr = 1
-for (i = 1, i < N, i += 2):
-    sum +=  sign * x ^ i / curr
-    curr *= (i + 1) * (i + 2)
-    sign *= (0 - 1)
-print(sum)
+N = 1000
+prime = array(N + 1)
+for (i = 0, i < N + 1, i++):
+    prime[i] = 1
+for (p = 2, p < N + 1, p++):
+    if prime[p] == 1:
+    for (j = p^2, j < N + 1, j += p):
+        prime[j] = 0
+for (p = 2, p < N + 1, p++):
+    if prime[p] == 1:
+        print(p)
