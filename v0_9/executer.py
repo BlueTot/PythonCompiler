@@ -1,4 +1,6 @@
+from sys import argv
 from convert_expressions import is_number
+from time import perf_counter
 
 NUMERICAL_INSTRUCTIONS = ("ADD", "SUB", "MTP", "DIV", "EXP", "MOD", "FDV")
 
@@ -67,4 +69,17 @@ def execute_assembly_code(assembly_code):
                 print(val)
                 ln += 1               
     except Exception as err:
-        print(f"Error occurred on line {ln}: {err}")        
+        print(f"Error occurred on line {ln}: {err}") 
+
+if __name__ in "__main__":
+    if len(argv) != 2:
+        print("Syntax: python executer.py assembly.txt")
+    else:
+        with open(argv[1], "r") as f:
+            data = f.read().splitlines()
+        assembly = {}
+        for i, line in enumerate(data):
+            assembly[i] = line
+        stime = perf_counter()
+        execute_assembly_code(assembly)
+        print(f"Execution successful, took {perf_counter() - stime} seconds")

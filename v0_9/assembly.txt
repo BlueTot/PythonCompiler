@@ -1,0 +1,46 @@
+STR N 10000
+ADD __r0__ N 1
+ARR prime __r0__
+STR i 0
+ADD __r0__ N 1
+CMP i __r0__
+BLT 8
+BAL 11
+AMV prime i 1
+ADD i i 1
+BAL 4
+STR p 2
+ADD __r0__ N 1
+CMP p __r0__
+BLT 16
+BAL 31
+AGT __r0__ prime p
+CMP 1 __r0__
+BEQ 20
+BAL 29
+EXP j p 2
+ADD __r0__ N 1
+CMP j __r0__
+BLT 25
+BAL 28
+AMV prime j 0
+ADD j j p
+BAL 21
+BAL 29
+ADD p p 1
+BAL 12
+STR sum 0
+STR p 2
+ADD __r0__ N 1
+CMP p __r0__
+BLT 37
+BAL 45
+AGT __r0__ prime p
+CMP 1 __r0__
+BEQ 41
+BAL 43
+ADD sum sum 1
+BAL 43
+ADD p p 1
+BAL 33
+PRT sum
