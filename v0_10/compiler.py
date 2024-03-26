@@ -12,6 +12,7 @@ class Compiler:
     def __init__(self):
         self.__variables = {} # key: variable name, value: address
         self.__arrays = {} # key: array name, value: (address, size of array)
+        self.__var_registers = {"__r4__": False, "__r5__": False, "__r6__": False, "__r7__": False}
     
     def next_variable_address(self):
         return max(list(self.__variables.values())) + 1
@@ -74,7 +75,7 @@ class Compiler:
                 new_code[ln] = line
         return new_code
 
-    def __compile_rpn(self, rpn, store=None, used_reg=None):
+    def __compile_rpn(self, rpn, used_reg=None):
 
         registers = [False for _ in range(len(self.REGISTERS))] # Initialise list of registers that have something stored
         if used_reg is not None: # If a register has been used by another part of the comparison operation
@@ -83,12 +84,10 @@ class Compiler:
         linenum = 0
         stack = []
 
-        for idx, token in enumerate(rpn): # Loop through all tokens in RPN list
+        for token in rpn: # Loop through all tokens in RPN list
             if token in OPERATIONS: # Operator found
                 reg = min([i for i, v in enumerate(registers) if not v]) # Get next free register index
                 register = self.REGISTERS[reg] # Get name of register
-                if idx == len(rpn) - 1 and store is not None: # If a store is required and this is the last operation
-                    register = store
                 operand2 = stack.pop()
                 operand1 = stack.pop()
                 match token:
@@ -101,12 +100,11 @@ class Compiler:
                     case "\\": assembly_code[linenum] = f"FDV {register} {operand1} {operand2}"
                     case "~": assembly_code[linenum] = f"AGT {register} {operand1} {operand2}"
                 stack.append(register)
-                if store is None or idx < len(rpn) - 1: # If store operation is not required
-                    registers[reg] = True # Set current register to be used
-                    if operand1 in self.REGISTERS:
-                        registers[self.REGISTERS.index(operand1)] = False # Free up register if used as operand
-                    if operand2 in self.REGISTERS:
-                        registers[self.REGISTERS.index(operand2)] = False # Free up register if used as operand
+                registers[reg] = True # Set current register to be used
+                if operand1 in self.REGISTERS:
+                    registers[self.REGISTERS.index(operand1)] = False # Free up register if used as operand
+                if operand2 in self.REGISTERS:
+                    registers[self.REGISTERS.index(operand2)] = False # Free up register if used as operand
                 linenum += 1
             else: # Operand found
                 if token.isdigit(): # number
@@ -180,7 +178,7 @@ class Compiler:
                                             self.__shift_pointers(self.__extract_section(assembly_code, ln+1, len(assembly_code)), -1, split_point=ln), 0)
                 ln = 0
             ln += 1
-        assembly_code.pop(len(assembly_code)-1)
+        assembly_code[len(assembly_code)-1] = "HALT"
         return assembly_code
 
     def __compile_code(self, code): # Compile code function with pass statements
@@ -361,15 +359,22 @@ class Compiler:
         return self.__remove_pass_statements(self.__compile_code(code))
 
 if __name__ in "__main__":
-    if len(argv) != 3:
-        print("How to compile code: python self.py code.txt assembly.txt")
-    else:
-        source, dest = argv[1], argv[2]
-        with open(source, "r") as f:
-            code = f.read().splitlines()
-        compiler = Compiler()
-        assembly = compiler.compile_code(code)
-        with open(dest, "w") as f:
-            for line in assembly.values():
-                f.write(line+"\n")
-        print(f"Code compiled successfully into {dest}")
+    if "--help" in argv: # Help argument
+        print("\033[91;1mpcompile syntax: pcompile <code file> <output>\033[0m")
+    elif len(argv) != 3: # Not enough arguments
+        print("\033[91;1mpcompile: Incorrect number of arguments\033[0m")
+    elif not argv[1] or not argv[2]: # Blank arguments
+        print("\033[91;1mpcompile: Some arguments are blank\033[0m")
+    else: # Valid arguments
+        try:
+            source, dest = argv[1], argv[2]
+            with open(source, "r") as f: # Read code file
+                code = f.read().splitlines()
+            compiler = Compiler()
+            assembly = compiler.compile_code(code) # Compile the code
+            with open(dest, "w") as f: # Write the assembly to output file
+                for line in assembly.values():
+                    f.write(line+"\n")
+            print(f"\033[92;1mCode compiled successfully into {dest}\033[0m")
+        except FileNotFoundError as err: # Code file not found
+            print(f"\033[91;1m{err}\033[0m")

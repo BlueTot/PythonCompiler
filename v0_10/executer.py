@@ -16,11 +16,10 @@ def execute_assembly_code(assembly_code):
     STATUS_REGISTER = (None, None, None, None) # Equal, Not Equal, Greater Than, Less Than
     ln = 0
     try:
-        while ln < len(assembly_code):
+        while True:
             line = assembly_code[ln]
-            if line == "PASS":
-                ln += 1
-                continue
+            if line == "HALT":
+                break
             opcode, operand = line.split(" ")[0], line.split(" ")[1:]
             if opcode in NUMERICAL_INSTRUCTIONS: # Numerical instruction
                 var, op1, op2 = operand
@@ -79,14 +78,21 @@ def execute_assembly_code(assembly_code):
         print(f"Error occurred on line {ln}: {err}") 
 
 if __name__ in "__main__":
-    if len(argv) != 2:
-        print("Syntax: python executer.py assembly.txt")
+    if "--help" in argv: # Help argument
+        print("\033[91;1mpexec syntax: pcompile <code file> <output>\033[0m")
+    elif len(argv) != 2: # Not enough arguments
+        print("\033[91;1mpexec: Incorrect number of arguments\033[0m")
+    elif not argv[1]: # Blank arguments
+        print("\033[91;1mpexec: Some arguments are blank\033[0m")
     else:
-        with open(argv[1], "r") as f:
-            data = f.read().splitlines()
-        assembly = {}
-        for i, line in enumerate(data):
-            assembly[i] = line
-        stime = perf_counter()
-        execute_assembly_code(assembly)
-        print(f"Execution successful, took {perf_counter() - stime} seconds")
+        try:
+            with open(argv[1], "r") as f:
+                data = f.read().splitlines()
+            assembly = {}
+            for i, line in enumerate(data):
+                assembly[i] = line
+            stime = perf_counter()
+            execute_assembly_code(assembly)
+            print(f"\033[92;1mExecution successful, took {perf_counter() - stime} seconds\033[0m")
+        except FileNotFoundError as err: # Code file not found
+            print(f"\033[91;1m{err}\033[0m")

@@ -50,3 +50,4 @@ ADD __r0__ p #1
 STR p __r0__
 BAL 37
 PRT sum
+HALT
