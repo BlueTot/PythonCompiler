@@ -1,5 +1,5 @@
 N = 10000
-prime = array(N + 1)
+prime = array(10001)
 for (i = 0, i < N + 1, i++):
     prime[i] = 1
 for (p = 2, p < N + 1, p++):

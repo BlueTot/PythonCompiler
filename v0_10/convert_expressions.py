@@ -2,6 +2,9 @@ import re
 
 OPERATIONS = "+-*/%^\\~"
 
+def is_variable(s):
+    return not (is_number(s[1:]) and s[0] == "#")
+
 def is_number(s):
     if s.isdigit(): # Integer
         return True

@@ -1,25 +1,53 @@
 import re
 from sys import argv
-from convert_expressions import OPERATIONS, convert_expression, is_number, is_value
+from convert_expressions import OPERATIONS, convert_expression, is_number, is_value, is_variable
+import random
+
+class CompliationError(Exception):
+    pass
 
 class Compiler:
 
-    REGISTERS = ["__r0__", "__r1__", "__r2__", "__r3__"]
     INDENT_SIZE = 4
-    VARIABLE_RANGE = (0, 1023)
-    ARRAY_RANGE = (1024, 1049600)
+    VARIABLE_RANGE = (4096, 5119)
+    ARRAY_RANGE = (5120, 1053695)
 
     def __init__(self):
         self.__variables = {} # key: variable name, value: address
         self.__arrays = {} # key: array name, value: (address, size of array)
-        self.__var_registers = {"__r4__": False, "__r5__": False, "__r6__": False, "__r7__": False}
+        self.__temp_registers = {"__r0__": False, "__r1__": False, "__r2__": False, "__r3__": False, "__r4__": False, "__r5__": False, "__r6__": False, "__r7__": False}
+        self.__var_registers = {"__r8__": None, "__r9__": None, "__r10__": None, "__r11__": None, "__r12__": None, "__r13__": None, "__r14__": None, "__r15__": None}
     
-    def next_variable_address(self):
-        return max(list(self.__variables.values())) + 1
+    def __next_variable_address(self):
+        return max(list(self.__variables.values())) + 1 if self.__variables else self.VARIABLE_RANGE[0]
 
-    def next_array_address(self):
+    def __next_array_address(self):
+        if not self.__arrays:
+            return self.ARRAY_RANGE[0]
         name, max_address = max(list(self.__arrays.values()), key= lambda x: x[0])
         return self.__arrays[name][1] + max_address + 1
+    
+    def __next_available_temp_register(self):
+        for k, v in self.__temp_registers.items():
+            if not v:
+                return k
+    
+    def __block_temp_register(self, reg):
+        self.__temp_registers[reg] = True
+    
+    def __free_temp_register(self, reg):
+        self.__temp_registers[reg] = False
+
+    def __next_available_var_register(self):
+        for k, v in self.__var_registers.items():
+            if v is None:
+                return k
+        return random.choice(list(self.__var_registers.keys()))
+    
+    def __get_reg_of_var(self, var):
+        for k, v in self.__var_registers.items():
+            if v == var:
+                return k
 
     def __num_indents(self, code, ln):
         for idx, char in enumerate(code[ln]):
@@ -75,36 +103,50 @@ class Compiler:
                 new_code[ln] = line
         return new_code
 
-    def __compile_rpn(self, rpn, used_reg=None):
+    def __compile_rpn(self, rpn):
 
-        registers = [False for _ in range(len(self.REGISTERS))] # Initialise list of registers that have something stored
-        if used_reg is not None: # If a register has been used by another part of the comparison operation
-            registers[self.REGISTERS.index(used_reg)] = True # Block out this register
         assembly_code = {}
         linenum = 0
         stack = []
 
         for token in rpn: # Loop through all tokens in RPN list
             if token in OPERATIONS: # Operator found
-                reg = min([i for i, v in enumerate(registers) if not v]) # Get next free register index
-                register = self.REGISTERS[reg] # Get name of register
+                register = self.__next_available_temp_register()
                 operand2 = stack.pop()
                 operand1 = stack.pop()
-                match token:
-                    case "+": assembly_code[linenum] = f"ADD {register} {operand1} {operand2}"
-                    case "-": assembly_code[linenum] = f"SUB {register} {operand1} {operand2}"
-                    case "*": assembly_code[linenum] = f"MTP {register} {operand1} {operand2}" 
-                    case "/": assembly_code[linenum] = f"DIV {register} {operand1} {operand2}"
-                    case "^": assembly_code[linenum] = f"EXP {register} {operand1} {operand2}"
-                    case "%": assembly_code[linenum] = f"MOD {register} {operand1} {operand2}"
-                    case "\\": assembly_code[linenum] = f"FDV {register} {operand1} {operand2}"
-                    case "~": assembly_code[linenum] = f"AGT {register} {operand1} {operand2}"
+                if token == "~": # array index operation:
+                    arrregname = self.__next_available_temp_register()
+                    if is_number(operand2): # Index is an immediate value
+                        assembly_code[linenum] = f"MOV {arrregname} #{self.__arrays[operand1][0] + int(operand2)}"
+                    else:
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(operand2), len(assembly_code))
+                        index_reg = self.__get_reg_of_var(operand2)
+                        addrregname = self.__next_available_temp_register()
+                        assembly_code[len(assembly_code)] = f"ADD {addrregname} #{self.__arrays[operand1][0]} {index_reg}"
+                        assembly_code[len(assembly_code)] = f"LDR {arrregname} {addrregname}"
+                    operand1 = arrregname
+                else:
+                    if is_variable(operand1): # operand 1 is a variable
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(operand1), len(assembly_code))
+                        operand1 = self.__get_reg_of_var(operand1)
+                    if is_variable(operand2): # operand 2 is a variable  
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(operand2), len(assembly_code))
+                        operand2 = self.__get_reg_of_var(operand2)
+                    match token:
+                        case "+": assembly_code[linenum] = f"ADD {register} {operand1} {operand2}"
+                        case "-": assembly_code[linenum] = f"SUB {register} {operand1} {operand2}"
+                        case "*": assembly_code[linenum] = f"MTP {register} {operand1} {operand2}" 
+                        case "/": assembly_code[linenum] = f"DIV {register} {operand1} {operand2}"
+                        case "^": assembly_code[linenum] = f"EXP {register} {operand1} {operand2}"
+                        case "%": assembly_code[linenum] = f"MOD {register} {operand1} {operand2}"
+                        case "\\": assembly_code[linenum] = f"FDV {register} {operand1} {operand2}"
+                        case "~": assembly_code[linenum] = f"AGT {register} {operand1} {operand2}"
                 stack.append(register)
-                registers[reg] = True # Set current register to be used
-                if operand1 in self.REGISTERS:
-                    registers[self.REGISTERS.index(operand1)] = False # Free up register if used as operand
-                if operand2 in self.REGISTERS:
-                    registers[self.REGISTERS.index(operand2)] = False # Free up register if used as operand
+                self.__block_temp_register(register)
+                if operand1 in self.__temp_registers:
+                    self.__free_temp_register(operand1) # Free up register if used as operand
+                if operand2 in self.__temp_registers:
+                    self.__free_temp_register(operand2) # Free up register if used as operand
                 linenum += 1
             else: # Operand found
                 if token.isdigit(): # number
@@ -114,8 +156,42 @@ class Compiler:
         
         return assembly_code, stack[-1] # Return assembly code and the register where output is stored at
 
-    def __compile_argument(self, expression, used_reg=None): # Compile argument
-        return self.__compile_rpn(convert_expression(expression).split(","), used_reg=used_reg)
+    def __compile_argument(self, expression): # Compile argument
+        return self.__compile_rpn(convert_expression(expression).split(","))
+    
+    def __compile_variable_load(self, value):
+        assembly_code = {}
+        if value not in self.__variables: # Operand not found in existing variables
+            raise CompliationError("Variable does not exist")
+        elif (nextreg := self.__get_reg_of_var(value)) is None: # variable isn't stored in any register
+            nextreg = self.__next_available_var_register()
+            assembly_code[0] = f"LDR {nextreg} {self.__variables[value]}"
+            self.__var_registers[nextreg] = value    
+        return assembly_code
+    
+    def __compile_variable_store(self, var, value):
+
+        assembly_code = {}
+
+        if is_number(value) or re.match(r"__r\d+__", value): # Operand is an immediate value or is a register
+
+            nextreg = self.__next_available_var_register()
+            assembly_code[0] = f"MOV {nextreg} {'#' if is_number(value) else ''}{value}" # move immediate value into register
+            self.__var_registers[nextreg] = var
+
+        else: # Operand is a variable name
+
+            assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(value), len(assembly_code))
+            nextreg = self.__get_reg_of_var(value)
+
+        if var in self.__variables: # Variable that is being saved to already exists
+            assembly_code[len(assembly_code)] = f"STR {nextreg} {self.__variables[var]}"
+        else:       
+            nextaddr = self.__next_variable_address()
+            assembly_code[len(assembly_code)] = f"STR {nextreg} {nextaddr}" # store value in register into next available address
+            self.__variables[var] = nextaddr
+
+        return assembly_code
 
     def __compile_assignment(self, line): # Compile Assignment operations
 
@@ -124,10 +200,12 @@ class Compiler:
         assembly_code = {}
 
         if len(rpn) == 1: # If only one operand
-            assembly_code[0] = f"STR {lefthalf} {'#' if is_number(rpn[0]) else ''}{rpn[0]}" # Store directly
-        else: # Otherwise
+            assembly_code = self.__extend_code(assembly_code, self.__compile_variable_store(lefthalf, rpn[0]), len(assembly_code))
+        else: # Multiple operands
             assembly_code, lastreg = self.__compile_rpn(rpn) # Compile RPN
-            assembly_code[len(assembly_code)] = f"STR {lefthalf} {lastreg}" # Store contents of last register into variable
+            assembly_code = self.__extend_code(assembly_code, self.__compile_variable_store(lefthalf, lastreg), len(assembly_code))
+            self.__free_temp_register(lastreg)
+
         return assembly_code
 
     def __compile_comparison(self, line): # Compile comparison operation
@@ -143,24 +221,48 @@ class Compiler:
 
                 '''Compile rpn for LHS and RHS and add compare instruction'''
                 if len(lrpn) == 1 and len(rrpn) == 1: # both do not require compiling
-                    assembly_code[0] = f"CMP {'#' if is_number(lrpn[0]) else ''}{lrpn[0]} {'#' if is_number(rrpn[0]) else ''}{rrpn[0]}"
+                    if is_number(lrpn[0]): # Immediate value
+                        lhs = lrpn[0]
+                    else: # Variable
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(lrpn[0]), len(assembly_code))
+                        lhs = self.__get_reg_of_var(lrpn[0])
+                    if is_number(rrpn[0]): # Immediate value
+                        rhs = rrpn[0]
+                    else: # Variable
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(rrpn[0]), len(assembly_code))
+                        rhs = self.__get_reg_of_var(rrpn[0])
+                    assembly_code[0] = f"CMP {'#' if is_number(lrpn[0]) else ''}{lhs} {'#' if is_number(rrpn[0]) else ''}{rhs}"
 
                 elif len(lrpn) == 1 and len(rrpn) > 1: # right half requires compiling
+                    if is_number(lrpn[0]): # Immediate value
+                        lhs = lrpn[0]
+                    else: # Variable
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(lrpn[0]), len(assembly_code))
+                        lhs = self.__get_reg_of_var(lrpn[0])
                     assembly_code, lastreg = self.__compile_rpn(rrpn)
                     linenum = len(assembly_code)
-                    assembly_code[linenum] = f"CMP {'#' if is_number(lrpn[0]) else ''}{lrpn[0]} {lastreg}"
+                    assembly_code[linenum] = f"CMP {'#' if is_number(lrpn[0]) else ''}{lhs} {lastreg}"
+                    self.__free_temp_register(lastreg)
 
                 elif len(lrpn) > 1 and len(rrpn) == 1: # left half requires compiling
+                    if is_number(rrpn[0]): # Immediate value
+                        rhs = rrpn[0]
+                    else: # Variable
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(rrpn[0]), len(assembly_code))
+                        rhs = self.__get_reg_of_var(rrpn[0])
                     assembly_code, lastreg = self.__compile_rpn(lrpn)
                     linenum = len(assembly_code)
-                    assembly_code[linenum] = f"CMP {'#' if is_number(rrpn[0]) else ''}{rrpn[0]} {lastreg}"
+                    assembly_code[linenum] = f"CMP {'#' if is_number(rrpn[0]) else ''}{rhs} {lastreg}"
+                    self.__free_temp_register(lastreg)
                 
                 else: # both sides need compiling
                     assembly_code, lastreg = self.__compile_rpn(lrpn) # Compile LHS and store register with stored value
                     linenum = len(assembly_code)
-                    new_code, lastreg2 = self.__compile_rpn(rrpn, used_reg=lastreg) # Compile RHS whilst blocking out register that is being used
+                    new_code, lastreg2 = self.__compile_rpn(rrpn) # Compile RHS whilst blocking out register that is being used
                     assembly_code = self.__extend_code(assembly_code, new_code, linenum) # Extend the assembly code
                     assembly_code[len(assembly_code)] = f"CMP {lastreg} {lastreg2}" # Add the compare operation
+                    self.__free_temp_register(lastreg)
+                    self.__free_temp_register(lastreg2)
 
                 linenum = len(assembly_code)
                 assembly_code[linenum] = f"{keyword} {linenum+2}" # Add branch instruction
@@ -269,21 +371,35 @@ class Compiler:
                 elif re.match(r".*=array(.*)", line): # Array declaration
                     name, size = line[:-1].split("=array(")
                     if not is_number(size):
-                        new_code, size = self.__compile_argument(size)
-                        assembly_code = self.__extend_code(assembly_code, new_code, linenum)
-                    assembly_code[linenum := len(assembly_code)] = f"ARR {name} {'#' if is_number(size) else ''}{size}"
+                        raise CompliationError("Variable length arrays are not supported")
+                    nextaddr = self.__next_array_address()
+                    self.__arrays[name] = (nextaddr, size)
+                    assembly_code = self.__extend_code(assembly_code, self.__compile_variable_store(f"__{name}__size__", size), len(assembly_code))
                     ln += 1
                 
                 elif re.match(r".*\[.*\]=.*", line): # Assignment to an array
                     __front, expression = line.split("]=")
                     array_name, index = __front.split("[")
-                    if not is_value(index):
+                    if not is_value(index): # index is an expression
                         new_code1, index = self.__compile_argument(index)
                         assembly_code = self.__extend_code(assembly_code, new_code1, linenum)
-                    if not is_value(expression):
-                        new_code2, expression = self.__compile_argument(expression, used_reg=index if not index.isdigit() else None)
+                    elif not is_number(index): # index is a variable
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(index), len(assembly_code))
+                        index = self.__get_reg_of_var(index)
+                    if not is_value(expression): # value is an expression
+                        new_code2, expreg = self.__compile_argument(expression, used_reg=index if not index.isdigit() else None)
                         assembly_code = self.__extend_code(assembly_code, new_code2, len(assembly_code))
-                    assembly_code[linenum := len(assembly_code)] = f"AMV {array_name} {index} {'#' if is_number(expression) else ''}{expression}"
+                    elif not is_number(expression): # value is a variable
+                        assembly_code = self.__extend_code(assembly_code, self.__compile_variable_load(expression), len(assembly_code))
+                        expreg = self.__get_reg_of_var(expression)
+                    else: # value is an immediate value
+                        expreg = self.__next_available_temp_register()
+                        self.__block_temp_register(expreg)
+                        assembly_code[len(assembly_code)] = f"MOV {expreg} #{expression}"
+                    addrreg = self.__next_available_temp_register()
+                    assembly_code[len(assembly_code)] = f"ADD {addrreg} #{self.__arrays[array_name][0]} {'#' if is_number(index) else ''}{index}"
+                    assembly_code[len(assembly_code)] = f"STR {expreg} {addrreg}"
+                    self.__free_temp_register(expreg)
                     ln += 1
                 
                 elif re.match(r".*\+=.*", line): # Fast Addition operator
@@ -358,23 +474,24 @@ class Compiler:
     def compile_code(self, code): # Compile code function without pass statements
         return self.__remove_pass_statements(self.__compile_code(code))
 
+def main(source, dest): # Main function
+    try:
+        with open(source, "r") as f: # Read code file
+            code = f.read().splitlines()
+        compiler = Compiler()
+        assembly = compiler.compile_code(code) # Compile the code
+        with open(dest, "w") as f: # Write the assembly to output file
+            for line in assembly.values():
+                f.write(line+"\n")
+        print(f"\033[92;1mCode compiled successfully into {dest}\033[0m")
+    except FileNotFoundError as err: # Code file not found
+        print(f"\033[91;1m{err}\033[0m")
+
 if __name__ in "__main__":
-    if "--help" in argv: # Help argument
-        print("\033[91;1mpcompile syntax: pcompile <code file> <output>\033[0m")
-    elif len(argv) != 3: # Not enough arguments
-        print("\033[91;1mpcompile: Incorrect number of arguments\033[0m")
-    elif not argv[1] or not argv[2]: # Blank arguments
-        print("\033[91;1mpcompile: Some arguments are blank\033[0m")
-    else: # Valid arguments
-        try:
-            source, dest = argv[1], argv[2]
-            with open(source, "r") as f: # Read code file
-                code = f.read().splitlines()
-            compiler = Compiler()
-            assembly = compiler.compile_code(code) # Compile the code
-            with open(dest, "w") as f: # Write the assembly to output file
-                for line in assembly.values():
-                    f.write(line+"\n")
-            print(f"\033[92;1mCode compiled successfully into {dest}\033[0m")
-        except FileNotFoundError as err: # Code file not found
-            print(f"\033[91;1m{err}\033[0m")
+    if not argv[1] and not argv[2]: # No arguments passed:
+        print("\033[91;1musage: pcompile <code file> [-o <output file>] \033[0m")
+    elif not argv[2]: # Second argument not passed:
+        main(argv[1], "assembly.txt")
+    else: # Both arguments passed
+        main(argv[1], argv[2])
+        
