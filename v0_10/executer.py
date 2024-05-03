@@ -3,66 +3,57 @@ import re
 from time import perf_counter
 
 def is_number(s):
-    if s[1:].isdigit() and s[0] == "#": # Integer
-        return True
-    elif re.match(r"\d+\.\d+", s[1:]) and s[0] == "#": # Float
+    s = s.replace("#", "")
+    if s.isdigit(): # Integer
         return True
     return False
 
 NUMERICAL_INSTRUCTIONS = ("ADD", "SUB", "MTP", "DIV", "EXP", "MOD", "FDV")
 
-def execute_assembly_code(assembly_code):
-    VARIABLES = {}
+def execute_assembly_code(memory):
+    REGISTERS = {"r0": None, "r1": None, "r2": None, "r3": None, "r4": None, "r5": None, "r6": None, "r7": None}
     STATUS_REGISTER = (None, None, None, None) # Equal, Not Equal, Greater Than, Less Than
     ln = 0
     try:
         while True:
-            line = assembly_code[ln]
+            line = memory[ln]
             if line == "HALT":
                 break
             opcode, operand = line.split(" ")[0], line.split(" ")[1:]
             if opcode in NUMERICAL_INSTRUCTIONS: # Numerical instruction
                 var, op1, op2 = operand
-                num1, num2 = (float(op1[1:]) if is_number(op1) else VARIABLES[op1]), (float(op2[1:]) if is_number(op2) else VARIABLES[op2])
+                num1, num2 = (int(op1[1:]) if is_number(op1) else REGISTERS[op1]), (int(op2[1:]) if is_number(op2) else REGISTERS[op2])
                 match opcode:
-                    case "ADD": VARIABLES[var] = num1 + num2
-                    case "SUB": VARIABLES[var] = num1 - num2
-                    case "MTP": VARIABLES[var] = num1 * num2
-                    case "DIV": VARIABLES[var] = num1 / num2
-                    case "EXP": VARIABLES[var] = num1 ** num2
-                    case "MOD": VARIABLES[var] = num1 % num2
-                    case "FDV": VARIABLES[var] = num1 // num2
+                    case "ADD": REGISTERS[var] = num1 + num2
+                    case "SUB": REGISTERS[var] = num1 - num2
+                    case "MTP": REGISTERS[var] = num1 * num2
+                    case "DIV": REGISTERS[var] = num1 / num2
+                    case "EXP": REGISTERS[var] = num1 ** num2
+                    case "MOD": REGISTERS[var] = num1 % num2
+                    case "FDV": REGISTERS[var] = num1 // num2
                 ln += 1
-                if var == "__temp__": 
-                    pass
+            elif opcode == "LDR": # Load instruction
+                reg, ref = operand
+                ref = int(ref.replace("#", "")) if is_number(ref) else REGISTERS[ref]
+                REGISTERS[reg] = memory[ref]
+                ln += 1
             elif opcode == "STR": # Store instruction
-                var, op = operand
-                number = float(op[1:]) if is_number(op) else VARIABLES[op]
-                VARIABLES[var] = number
+                reg, ref = operand
+                ref = int(ref.replace("#", "")) if is_number(ref) else REGISTERS[ref]
+                memory[ref] = REGISTERS[reg]
                 ln += 1
-            elif opcode == "ARR": # Declare Array instruction
-                name, length = operand
-                length = int(length[1:]) if is_number(length) else VARIABLES[length]
-                VARIABLES[name] = [None for _ in range(int(length))]
-                ln += 1
-            elif opcode == "AMV": # Set Item in Array instruction
-                name, index, value = operand
-                index = int(index[1:]) if is_number(index) else VARIABLES[index]
-                value = float(value[1:]) if is_number(value) else VARIABLES[value]
-                VARIABLES[name][int(index)] = value
-                ln += 1
-            elif opcode == "AGT": # Read Item in Array instruction
-                register, name, index = operand
-                index = int(index[1:]) if is_number(index) else VARIABLES[index]
-                VARIABLES[register] = VARIABLES[name][int(index)]
+            elif opcode == "MOV": # Move instruction
+                reg, op = operand
+                op = int(op.replace("#", "")) if is_number(op) else REGISTERS[op]
+                REGISTERS[reg] = op
                 ln += 1
             elif opcode == "CMP": # Compare instruction
                 lhs, rhs = operand
-                num1, num2 = (float(lhs[1:]) if is_number(lhs) else VARIABLES[lhs]), (float(rhs[1:]) if is_number(rhs) else VARIABLES[rhs])
+                num1, num2 = (int(lhs[1:]) if is_number(lhs) else REGISTERS[lhs]), (int(rhs[1:]) if is_number(rhs) else REGISTERS[rhs])
                 STATUS_REGISTER = (num1 == num2, num1 != num2, num1 > num2, num1 < num2)
                 ln += 1
             elif opcode[0] == "B": # Branch instruction
-                address = float(operand[0])
+                address = int(operand[0])
                 if opcode == "BAL":
                     ln = address
                 elif opcode == "BEQ" and STATUS_REGISTER[0] or opcode == "BNE" and STATUS_REGISTER[1] or \
@@ -71,7 +62,7 @@ def execute_assembly_code(assembly_code):
                 else:
                     ln += 1
             elif opcode == "PRT": # Print instruction
-                val = float(operand[0]) if is_number(operand[0]) else VARIABLES[operand[0]]
+                val = float(operand[0]) if is_number(operand[0]) else REGISTERS[operand[0]]
                 print(val)
                 ln += 1               
     except Exception as err:
@@ -87,12 +78,9 @@ if __name__ in "__main__":
     else:
         try:
             with open(argv[1], "r") as f:
-                data = f.read().splitlines()
-            assembly = {}
-            for i, line in enumerate(data):
-                assembly[i] = line
+                memory = f.read().splitlines()
             stime = perf_counter()
-            execute_assembly_code(assembly)
+            execute_assembly_code(memory)
             print(f"\033[92;1mExecution successful, took {perf_counter() - stime} seconds\033[0m")
         except FileNotFoundError as err: # Code file not found
             print(f"\033[91;1m{err}\033[0m")

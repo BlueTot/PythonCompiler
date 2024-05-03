@@ -3,7 +3,7 @@ import re
 OPERATIONS = "+-*/%^\\~"
 
 def is_variable(s):
-    return not (is_number(s[1:]) and s[0] == "#")
+    return not (is_number(s[1:]) and s[0] == "#") and not re.match(r"r\d", s)
 
 def is_number(s):
     if s.isdigit(): # Integer
