@@ -1,7 +1,6 @@
 import re
 from sys import argv
 from convert_expressions import OPERATIONS, convert_expression, is_number, is_value, is_variable
-import random
 
 class CompliationError(Exception):
     pass
@@ -9,8 +8,8 @@ class CompliationError(Exception):
 class Compiler:
 
     INDENT_SIZE = 4
-    VARIABLE_RANGE = (4096, 5119)
-    ARRAY_RANGE = (5120, 1053695)
+    VARIABLE_RANGE = (32, 191)
+    ARRAY_RANGE = (192, 255)
 
     def __init__(self):
         self.__variables = {} # key: variable name, value: address
