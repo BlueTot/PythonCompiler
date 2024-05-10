@@ -1,0 +1,256 @@
+MOV r0 #100
+STR r0 32
+MOV r0 #101
+STR r0 33
+MOV r0 #0
+STR r0 34
+LDR r0 34
+LDR r2 32
+ADD r1 r2 #1
+CMP r0 r1
+BLT 12
+BAL 20
+LDR r0 34
+MOV r1 #1
+ADD r2 #192 r0
+STR r1 r2
+LDR r2 34
+ADD r1 r2 #1
+STR r1 34
+BAL 6
+MOV r1 #2
+STR r1 35
+LDR r1 35
+LDR r3 32
+ADD r2 r3 #1
+CMP r1 r2
+BLT 28
+BAL 57
+LDR r2 35
+ADD r3 #192 r2
+LDR r1 r3
+CMP #1 r1
+BEQ 34
+BAL 53
+LDR r3 35
+EXP r1 r3 #2
+STR r1 36
+LDR r1 36
+LDR r4 32
+ADD r3 r4 #1
+CMP r1 r3
+BLT 43
+BAL 52
+LDR r1 36
+MOV r3 #0
+ADD r4 #192 r1
+STR r3 r4
+LDR r4 36
+LDR r5 35
+ADD r3 r4 r5
+STR r3 36
+BAL 37
+BAL 53
+LDR r4 35
+ADD r3 r4 #1
+STR r3 35
+BAL 22
+MOV r3 #0
+STR r3 37
+MOV r3 #2
+STR r3 35
+LDR r3 35
+LDR r5 32
+ADD r4 r5 #1
+CMP r3 r4
+BLT 67
+BAL 81
+LDR r4 35
+ADD r5 #192 r4
+LDR r3 r5
+CMP #1 r3
+BEQ 73
+BAL 77
+LDR r5 37
+ADD r3 r5 #1
+STR r3 37
+BAL 77
+LDR r5 35
+ADD r3 r5 #1
+STR r3 35
+BAL 61
+LDR r3 37
+PRT r3
+HALT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

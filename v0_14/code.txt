@@ -1,0 +1,13 @@
+N = 1000
+prime = array(1001)
+for (i = 0, i < N + 1, i++):
+    prime[i] = 1
+for (p = 2, p < N + 1, p++):
+    if prime[p] == 1:
+        for (j = p^2, j < N + 1, j += p):
+            prime[j] = 0
+sum = 0
+for (p = 2, p < N + 1, p++):
+    if prime[p] == 1:
+        sum += 1
+print(sum)
