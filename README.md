@@ -7,11 +7,25 @@ An experimental project that simulates a programming language similar to python 
 
 *Verilog processor original code by Mr Gwilt (then modified)
 
-## How To Use
+## Installation
 
-Code for the compiler and verilog RTL microprocessor can be found in the `simulator` directory. </br>
-To run the code, first manually change necessary paths (e.g. path of python) in the macros (`.bat`) </br>
-Then, open the directory `main` and run the command `fakepython code.txt` in the terminal, which should open a `.vcd` file that shows the output of running the code on the microprocessor
+- Type this into your terminal:
+  ```
+  git clone https://github.com/BlueTot/PythonCompiler
+  ```
+- Assuming that you are in the `main` directory of the cloned repo, run these commands to activate the simulator:
+  ```
+  python ../simulator/compiler.py code.txt assembly.txt
+  python ../simulator/assembler.py assembly.txt memory.txt
+  iverilog ../simulator/tb
+- This should open a `.vcd` file that shows the output of running the code on the microprocessor
+    - To check which register contains the output value, make sure to do `print(<var>)` at the end of your code and go to the bottom of `assembly.txt` and find which register contains the value.
+- Or alternatively you can modify the `.bat` files given or make new commands on linux by editing `.bashrc`, so you can use the given command `fakepython`
+
+## Dependencies
+
+- This program requires both `python` and `iverilog` to be installed on your system.
+- If you've installed the packages but the path cannot be found, try putting the paths for `python` and `iverilog` at the top of the PATH environment variable
 
 ## Features of the Programming Language
 
@@ -23,3 +37,4 @@ Then, open the directory `main` and run the command `fakepython code.txt` in the
 - Arrays, defined via the syntax `<var> = array(<size>)`, creating an empty array which has to be populated manually
 - All other features should follow a pythonic syntax, keep in mind that other python features such as list comprehension are not allowed.
 - Functions do not exist, hence recursion also isn't possible
+  - But while loops and recursion are equivalent (if you use a stack) so the language IS turing complete!
